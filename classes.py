@@ -16,7 +16,7 @@ class Miner:
         self.action = None
         self.probs = np.array([.8, .1, .1])
         self.earnings = 0
-        self.steal_amount = 0.5
+        self.break_lock_chance = 0.3
 
     def mine(self):
         self.earnings = 1
@@ -27,16 +27,16 @@ class Miner:
         self.earnings = 0
 
     def loss(self):
-        chance = np.random.random()
-        if chance <= 1/(1 + self.safe.locks):
-            self.safe.locks = 0
-            loss_money = np.ceil(self.steal_amount*self.safe.money)
-            self.safe.money -= loss_money
-            return loss_money
-        else:
-            locks_busted = np.floor(0.5*self.safe.locks)
-            self.safe.locks -= locks_busted
-            return 0
+        while self.safe.locks > 0:
+            chance = np.random.random()
+            if chance <= self.break_lock_chance:
+                self.safe.locks -= 1
+            else:
+                return 0
+
+        loss_money = self.safe.money
+        self.safe.money = 0
+        return loss_money
 
     def steal(self, neighbor):
         gain = neighbor.loss()
