@@ -7,6 +7,7 @@ class Safe:
         self.money = 0
         self.locks = 0
         self.lock_price = 3
+        self.break_lock_chance = 0.3
 
 
 class Miner:
@@ -16,7 +17,6 @@ class Miner:
         self.action = None
         self.probs = np.array([.8, .1, .1])
         self.earnings = 0
-        self.break_lock_chance = 0.3
 
     def mine(self):
         self.earnings = 1
@@ -29,7 +29,7 @@ class Miner:
     def loss(self):
         while self.safe.locks > 0:
             chance = np.random.random()
-            if chance <= self.break_lock_chance:
+            if chance <= self.safe.break_lock_chance:
                 self.safe.locks -= 1
             else:
                 return 0
