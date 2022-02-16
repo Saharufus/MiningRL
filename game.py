@@ -1,10 +1,7 @@
 from classes import Game
-from time import sleep
-import numpy as np
 
 
 def play(rounds=50):
-    thieves = []
     game = Game(8)
     for i in range(rounds):
         game.good_morning()
@@ -15,4 +12,4 @@ def play(rounds=50):
 
 
 if __name__ == '__main__':
-    play(500)
+    play(1000)
