@@ -8,7 +8,6 @@ class Safe:
         self.money = 0
         self.locks = 0
         self.lock_price = 3
-        self.break_lock_chance = 0.3
 
 
 class Miner:
@@ -16,13 +15,16 @@ class Miner:
         self.safe = Safe()
         self.actions = ['mine', 'lock', 'steal']
         self.action = None
-        self.probs = np.array([.8, .1, .1])
+        self.probs = np.array([0.8, 0.1, 0.1])
         self.earnings = 0
         self.steal_gains = np.array([])
         self.breakins = 0
         self.successful_breakins = 0
         self.steals = 0
+        self.locks_cracked = 0
         self.successful_steals = 0
+        self.steal_from_probs = None
+        self.break_lock_chance = (1 + np.tanh(-1))/2
 
     def mine(self):
         self.earnings = 1
@@ -38,29 +40,30 @@ class Miner:
         locks_lost = 0
         while self.safe.locks > 0:
             chance = np.random.random()
-            if chance <= self.safe.break_lock_chance:
+            if chance <= self.break_lock_chance:
                 self.safe.locks -= 1
                 locks_lost += 1
             else:
                 self.probs = change_probs(self.probs, 1, 0.01*self.safe.money*locks_lost/self.safe.locks)
-                return 0
+                return 0, locks_lost
 
         self.successful_breakins += 1
         loss_money = self.safe.money
         self.safe.money = 0
         self.probs = change_probs(self.probs, 1, 0.1*loss_money)
-        return loss_money
+        return loss_money, locks_lost
 
     def steal(self, neighbor):
-        gain = neighbor.loss()
-        self.earnings = gain
+        self.steals += 1
+        gain, locks_cracked = neighbor.loss()
+        self.locks_cracked += locks_cracked
+        self.break_lock_chance = (1 + np.tanh(self.locks_cracked - 1)) / 2
+        if np.random.random() > 0.85:
+            gain = 0
         self.steal_gains = np.append(self.steal_gains, gain)
         self.probs = change_probs(self.probs, 2, 0.1*self.steal_gains.mean())
         if gain > 0:
             self.successful_steals += 1
-            self.steals += 1
-        else:
-            self.steals += 1
 
     def add_earnings(self):
         self.safe.money += self.earnings
@@ -100,10 +103,14 @@ class Game:
 
         for i, miner in enumerate(self.miners):
             if miner.action == 'steal':
-                miner_probs = np.random.random(self.n_miners)
-                miner_probs[i] = 0
-                miner_to_steal = miner_probs.argmax()
+                if miner.steal_from_probs is None:
+                    miner.steal_from_probs = np.array([1/(self.n_miners-1) for _ in range(self.n_miners)])
+                    miner.steal_from_probs[i] = 0
+                miner_to_steal = np.random.choice(self.n_miners, p=miner.steal_from_probs)
                 miner.steal(self.miners[miner_to_steal])
+                if miner.earnings == 0:
+                    miner.steal_from_probs[miner_to_steal] *= 0.5
+                    miner.steal_from_probs /= miner.steal_from_probs.sum()
 
         self.update_stats()
         self.day += 1
