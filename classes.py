@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from helpers import change_probs
 
 
 class Safe:
@@ -17,9 +18,11 @@ class Miner:
         self.action = None
         self.probs = np.array([.8, .1, .1])
         self.earnings = 0
+        self.steal_gains = np.array([])
 
     def mine(self):
         self.earnings = 1
+        self.probs = change_probs(self.probs, 0, 0.1)
 
     def lock(self):
         self.safe.locks += 1
@@ -32,6 +35,7 @@ class Miner:
             if chance <= self.safe.break_lock_chance:
                 self.safe.locks -= 1
             else:
+                self.probs = change_probs(self.probs, 1, 0.2)
                 return 0
 
         loss_money = self.safe.money
@@ -41,6 +45,8 @@ class Miner:
     def steal(self, neighbor):
         gain = neighbor.loss()
         self.earnings = gain
+        self.steal_gains = np.append(self.steal_gains, gain)
+        self.probs = change_probs(self.probs, 2, 0.1*self.steal_gains.mean())
 
     def add_earnings(self):
         self.safe.money += self.earnings
