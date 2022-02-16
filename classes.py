@@ -19,6 +19,10 @@ class Miner:
         self.probs = np.array([.8, .1, .1])
         self.earnings = 0
         self.steal_gains = np.array([])
+        self.breakins = 0
+        self.successful_breakins = 0
+        self.steals = 0
+        self.successful_steals = 0
 
     def mine(self):
         self.earnings = 1
@@ -30,16 +34,21 @@ class Miner:
         self.earnings = 0
 
     def loss(self):
+        self.breakins += 1
+        locks_lost = 0
         while self.safe.locks > 0:
             chance = np.random.random()
             if chance <= self.safe.break_lock_chance:
                 self.safe.locks -= 1
+                locks_lost += 1
             else:
-                self.probs = change_probs(self.probs, 1, 0.2)
+                self.probs = change_probs(self.probs, 1, 0.01*self.safe.money*locks_lost/self.safe.locks)
                 return 0
 
+        self.successful_breakins += 1
         loss_money = self.safe.money
         self.safe.money = 0
+        self.probs = change_probs(self.probs, 1, 0.1*loss_money)
         return loss_money
 
     def steal(self, neighbor):
@@ -47,6 +56,11 @@ class Miner:
         self.earnings = gain
         self.steal_gains = np.append(self.steal_gains, gain)
         self.probs = change_probs(self.probs, 2, 0.1*self.steal_gains.mean())
+        if gain > 0:
+            self.successful_steals += 1
+            self.steals += 1
+        else:
+            self.steals += 1
 
     def add_earnings(self):
         self.safe.money += self.earnings
@@ -62,6 +76,10 @@ class Game:
             'Money in hand': 0,
             'Total money': 0,
             'Locks': 0,
+            'Break ins': 0,
+            'Successful break ins': 0,
+            'Steal attempts': 0,
+            'Successful steals': 0,
             'Last action': None
         } for _ in range(miners)])
 
@@ -95,4 +113,8 @@ class Game:
         self.stats['Money in hand'] = pd.Series([miner.earnings for miner in self.miners])
         self.stats['Total money'] = pd.Series([(miner.earnings + miner.safe.money) for miner in self.miners])
         self.stats['Locks'] = pd.Series([miner.safe.locks for miner in self.miners])
+        self.stats['Break ins'] = pd.Series([miner.breakins for miner in self.miners])
+        self.stats['Successful break ins'] = pd.Series([miner.successful_breakins for miner in self.miners])
+        self.stats['Steal attempts'] = pd.Series([miner.steals for miner in self.miners])
+        self.stats['Successful steals'] = pd.Series([miner.successful_steals for miner in self.miners])
         self.stats['Last action'] = pd.Series([miner.action for miner in self.miners])
